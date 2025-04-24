@@ -1,73 +1,99 @@
 require("dotenv").config();
 const express = require("express");
-// const { MongoClient, ServerApiVersion } = require("mongodb");
+const mysql = require("mysql");
+const pool = require('./db');
+const db = require("./db.js");
 const app = express();
 
-// const uri = process.env.MONGO_URI;
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken'); // npm install jsonwebtoken
 
-// // Create a single persistent MongoClient instance
-// const client = new MongoClient(uri, {
-//   serverApi: {
-//     version: ServerApiVersion.v1,
-//     strict: true,
-//     deprecationErrors: true,
-//   }
-// });
+const PORT = process.env.PORT || 3000;
 
-// // Connect to MongoDB when starting the app
-// let db;
-// async function connectDB() {
-//   try {
-//     await client.connect();
-//     db = client.db("sample_mflix"); // Use your database name
-//     console.log("Successfully connected to MongoDB!");
-//   } catch (err) {
-//     console.error("MongoDB connection error:", err);
-//     process.exit(1); // Exit if can't connect
-//   }
-// };
+app.get('/', (req, res) => {
+  res.json({ message: 'Welcome to our API!', status: 'success' });
+});
 
-// // Basic route to test connection
-// app.get("/", async (req, res) => {
-//   try {
-//     // Test the connection by pinging the database
-//     await db.command({ ping: 1 });
+// Register endpoint
+app.post('/api/register', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
     
-//     res.send("Successfully connected to MongoDB!");
-//   } catch (err) {
-//     console.error("Database error:", err);
-//     res.status(500).send("Database connection error");
-//   }
-// });
-
-// // Add this route to your existing server
-// app.get("/users", async (req, res) => {
-//   try {
-//     // Access the "users" collection
-//     const usersCollection = db.collection("users");
+    const [result] = await pool.execute(
+      'INSERT INTO users (username, password) VALUES (?, ?)',
+      [username, hashedPassword]
+    );
     
-//     // Get first 10 users (prevents overload)
-//     const users = await usersCollection.find().limit(10).toArray();
-    
-//     // Return as JSON
-//     res.json(users);
-//   } catch (err) {
-//     console.error("Failed to fetch users:", err);
-//     res.status(500).json({ error: "Database error" });
-//   }
-// });
+    res.status(201).json({ 
+      id: result.insertId, 
+      username,
+      message: 'User created successfully' 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+
+// Add this to your existing routes
+app.get('/api/users', async (req, res) => {
+  try {
+    // Query to select all users (without passwords for security)
+    const [users] = await pool.query(
+      'SELECT id, username, created_at FROM Users'
+    );
+    
+    res.json(users);
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+
+// Login endpoint
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    // 1. Verify user credentials
+    const [users] = await pool.query(
+      'SELECT * FROM users WHERE username = ?', 
+      [username]
+    );
+    
+    if (users.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const user = users[0];
+    const isValid = await bcrypt.compare(password, user.password);
+    
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // 2. Generate NEW JWT token
+    const token = jwt.sign(
+      { 
+        userId: user.id,
+        username: user.username 
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' } // Token expires in 1 hour
+    );
+    
+    // 3. Return token to client
+    res.json({ token });
+    
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 
 // Connect to DB and start server
-const PORT = process.env.PORT || 3000;
-// connectDB().then(() => {
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-// });
-
-// // Close connection when app terminates
-// process.on('SIGINT', async () => {
-//   await client.close();
-//   console.log('MongoDB connection closed');
-//   process.exit(0);
-// });
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
