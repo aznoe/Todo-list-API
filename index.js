@@ -1,53 +1,73 @@
 require("dotenv").config();
 const express = require("express");
-// const connectDB = require("./db"); // import the DB connect function
+// const { MongoClient, ServerApiVersion } = require("mongodb");
 const app = express();
 
-// Connect to MongoDB
-// connectDB();
+// const uri = process.env.MONGO_URI;
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
-const uri = process.env.MONGO_URI;
-console.log(uri);
+// // Create a single persistent MongoClient instance
+// const client = new MongoClient(uri, {
+//   serverApi: {
+//     version: ServerApiVersion.v1,
+//     strict: true,
+//     deprecationErrors: true,
+//   }
+// });
 
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-  serverApi: {
-    version: ServerApiVersion.v1,
-    strict: true,
-    deprecationErrors: true,
-  },
-});
+// // Connect to MongoDB when starting the app
+// let db;
+// async function connectDB() {
+//   try {
+//     await client.connect();
+//     db = client.db("sample_mflix"); // Use your database name
+//     console.log("Successfully connected to MongoDB!");
+//   } catch (err) {
+//     console.error("MongoDB connection error:", err);
+//     process.exit(1); // Exit if can't connect
+//   }
+// };
 
-async function run() {
-  try {
-    // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
-    // Send a ping to confirm a successful connection
-    await client.db("users").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
-  } finally {
-    // Ensures that the client will close when you finish/error
-    await client.close();
-  }
-}
-run().catch(console.dir);
+// // Basic route to test connection
+// app.get("/", async (req, res) => {
+//   try {
+//     // Test the connection by pinging the database
+//     await db.command({ ping: 1 });
+    
+//     res.send("Successfully connected to MongoDB!");
+//   } catch (err) {
+//     console.error("Database error:", err);
+//     res.status(500).send("Database connection error");
+//   }
+// });
 
-// Sample Mongoose model
-const mongoose = require("mongoose");
-const Item = mongoose.model("Item", new mongoose.Schema({ name: String }));
+// // Add this route to your existing server
+// app.get("/users", async (req, res) => {
+//   try {
+//     // Access the "users" collection
+//     const usersCollection = db.collection("users");
+    
+//     // Get first 10 users (prevents overload)
+//     const users = await usersCollection.find().limit(10).toArray();
+    
+//     // Return as JSON
+//     res.json(users);
+//   } catch (err) {
+//     console.error("Failed to fetch users:", err);
+//     res.status(500).json({ error: "Database error" });
+//   }
+// });
 
-// Route to get items
-app.get("/", async (req, res) => {
-  try {
-    const items = await Item.find();
-    res.json(items);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
 
+
+// Connect to DB and start server
 const PORT = process.env.PORT || 3000;
+// connectDB().then(() => {
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// });
+
+// // Close connection when app terminates
+// process.on('SIGINT', async () => {
+//   await client.close();
+//   console.log('MongoDB connection closed');
+//   process.exit(0);
+// });
