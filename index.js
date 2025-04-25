@@ -3,6 +3,9 @@ const express = require("express");
 const pool = require('./db.js'); // Only need this one
 const app = express();
 
+const { body } = require('express-validator');
+const { login } = require('./authController');
+
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -34,6 +37,17 @@ app.get('/api/users', async (req, res) => {
     });
   }
 });
+
+app.post('/api/login', 
+  [
+    body('username').trim().notEmpty().withMessage('Username is required'),
+    body('password').notEmpty().withMessage('Password is required')
+  ],
+  login
+);
+
+
+
 //DOCUMENTATION 
 // app.get('/api-docs', (req, res) => {
 //   res.json({
