@@ -1,99 +1,79 @@
 require("dotenv").config();
 const express = require("express");
-const mysql = require("mysql");
-const pool = require('./db');
-const db = require("./db.js");
+const pool = require('./db.js'); // Only need this one
 const app = express();
 
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken'); // npm install jsonwebtoken
+const jwt = require('jsonwebtoken');
 
 const PORT = process.env.PORT || 3000;
+
+app.use(express.json()); // Add this to parse JSON bodies
 
 app.get('/', (req, res) => {
   res.json({ message: 'Welcome to our API!', status: 'success' });
 });
 
-// Register endpoint
-app.post('/api/register', async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    const [result] = await pool.execute(
-      'INSERT INTO users (username, password) VALUES (?, ?)',
-      [username, hashedPassword]
-    );
-    
-    res.status(201).json({ 
-      id: result.insertId, 
-      username,
-      message: 'User created successfully' 
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-// Add this to your existing routes
 app.get('/api/users', async (req, res) => {
   try {
-    // Query to select all users (without passwords for security)
-    const [users] = await pool.query(
-      'SELECT id, username, created_at FROM Users'
-    );
+    const [users] = await pool.query('SELECT id, name, username FROM users');
     
-    res.json(users);
+    res.json({
+      success: true,
+      count: users.length,
+      data: users,
+      timestamp: new Date().toISOString()
+    });
+    
   } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    console.error('GET /api/users error:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Database error',
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
+//DOCUMENTATION 
+// app.get('/api-docs', (req, res) => {
+//   res.json({
+//     endpoints: {
+//       users: {
+//         getAll: 'GET /api/users',
+//         getOne: 'GET /api/users/:id',
+//         withTodos: 'GET /api/users/:id?include=todos'
+//       },
+//       todos: {
+//         byUser: 'GET /api/todos/user/:userId',
+//         single: 'GET /api/todos/:id'
+//       }
+//     },
+//     status: 'operational',
+//     dbConnection: 'active',
+//     lastChecked: new Date().toISOString()
+//   });
+// });
 
-
-// Login endpoint
-app.post('/api/login', async (req, res) => {
+app.get('/health', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    // Test database connection
+    await pool.query('SELECT 1');
     
-    // 1. Verify user credentials
-    const [users] = await pool.query(
-      'SELECT * FROM users WHERE username = ?', 
-      [username]
-    );
-    
-    if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    const user = users[0];
-    const isValid = await bcrypt.compare(password, user.password);
-    
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    // 2. Generate NEW JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id,
-        username: user.username 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' } // Token expires in 1 hour
-    );
-    
-    // 3. Return token to client
-    res.json({ token });
-    
+    res.json({
+      status: 'healthy',
+      database: 'connected',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({
+      status: 'unhealthy',
+      database: 'disconnected',
+      error: err.message
+    });
   }
 });
 
-
-// Connect to DB and start server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
