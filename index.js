@@ -5,6 +5,8 @@ const app = express();
 
 const { body } = require('express-validator');
 const { login } = require('./authController');
+const { createUser } = require('./userController');
+
 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
@@ -37,15 +39,35 @@ app.get('/api/users', async (req, res) => {
     });
   }
 });
-
+//Login
 app.post('/api/login', 
   [
     body('username').trim().notEmpty().withMessage('Username is required'),
     body('password').notEmpty().withMessage('Password is required')
   ],
   login
+
 );
 
+
+
+
+
+
+//Create user
+app.post('/api/createuser',
+  [
+    body('name').trim().notEmpty().withMessage('Name is required'),
+    body('username')
+      .trim()
+      .notEmpty().withMessage('Username is required')
+      .isLength({ min: 4 }).withMessage('Username must be at least 4 characters'),
+    body('password')
+      .notEmpty().withMessage('Password is required')
+      .isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+  ],
+  createUser
+);
 
 
 //DOCUMENTATION 
@@ -87,6 +109,7 @@ app.get('/health', async (req, res) => {
     });
   }
 });
+
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on http://localhost:${PORT}`);
